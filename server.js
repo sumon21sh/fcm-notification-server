@@ -4,6 +4,13 @@ const admin = require('firebase-admin');
 const app = express();
 app.use(express.json());
 
+// প্রতিটা incoming request Render Logs-এ দেখানোর জন্য (ডিবাগ করতে সুবিধা হয়,
+// এটা না থাকলে request পৌঁছালেও সফল হলে কোনো log দেখা যেত না)
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.path} — api-key present: ${!!req.header('x-api-key')}`);
+  next();
+});
+
 // ---------- Firebase Admin Init ----------
 // Render-এ Environment Variable হিসেবে পুরো JSON string রাখবেন (FIREBASE_SERVICE_ACCOUNT)
 let serviceAccount;
@@ -23,6 +30,7 @@ admin.initializeApp({
 function checkApiKey(req, res, next) {
   const key = req.header('x-api-key');
   if (!key || key !== process.env.API_SECRET_KEY) {
+    console.warn('[AUTH FAILED] provided key did not match API_SECRET_KEY');
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   next();
@@ -55,6 +63,7 @@ app.post('/send-notification', checkApiKey, async (req, res) => {
     };
 
     const response = await admin.messaging().send(message);
+    console.log(`[SUCCESS] send-notification -> messageId: ${response}`);
     res.json({ success: true, messageId: response });
   } catch (err) {
     console.error('Send error:', err);
@@ -106,6 +115,7 @@ app.post('/send-notification-topic', checkApiKey, async (req, res) => {
     };
 
     const response = await admin.messaging().send(message);
+    console.log(`[SUCCESS] send-notification-topic -> topic: ${topic}, messageId: ${response}`);
     res.json({ success: true, messageId: response });
   } catch (err) {
     console.error('Topic send error:', err);
